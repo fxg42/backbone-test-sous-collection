@@ -154,7 +154,7 @@ var LangCollectionView = Backbone.View.extend({
 //
 // Le UndoStack permet de sauvegarder temporairement l'état d'un Developer.
 // Lorsqu'un événement de modification est reçu (change, add ou remove), l'état
-// est sauvegardé en format json. Un appel à `restore` rammène l'état précédent.
+// est sauvegardé en format json. Un appel à `undo` rammène l'état précédent.
 //
 var UndoStack = function (options) {
   this.model = options.model;
