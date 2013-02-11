@@ -46,8 +46,10 @@ var Developer = Backbone.Model.extend({
   // La méthode `parse` est appelée, entre autres choses, lorsqu'un document
   // JSON est retournée par la méthode `Backbone.sync`. Ici, on transforme les
   // réponses brutes JSON en collections Backbone. Il s'agit du `backbonify`...
+  // De plus, on propage les événements des sous-collections vers this.
   parse: function (resp, options) {
-    resp.favoriteLanguages = new FavoriteLanguages(resp.favoriteLanguages);
+    this.off('all', this.trigger, this);
+    resp.favoriteLanguages = new FavoriteLanguages(resp.favoriteLanguages).on('all', this.trigger, this);
     return resp;
   },
 
@@ -115,7 +117,7 @@ var LangCollectionView = Backbone.View.extend({
 
   // On peut quand même s'abonner aux modifications de la liste.
   bindToCollection: function () {
-    this.model.get('favoriteLanguages').on('add remove', this.render, this);
+    this.model.get('favoriteLanguages').on('change add remove', this.render, this);
   },
 
   bindToCollectionAndRender: function () {
@@ -150,6 +152,89 @@ var LangCollectionView = Backbone.View.extend({
 });
 
 //
+// Le UndoStack permet de sauvegarder temporairement l'état d'un Developer.
+// Lorsqu'un événement de modification est reçu (change, add ou remove), l'état
+// est sauvegardé en format json. Un appel à `restore` rammène l'état précédent.
+//
+var UndoStack = function (options) {
+  this.model = options.model;
+  this.reset();
+  this.startListening();
+};
+_.extend(UndoStack.prototype, Backbone.Events, {
+
+  startListening: function () {
+    this.listenTo(this.model, 'sync', this.reset);
+    // Meme si `model` est un Developer, les événements change add et remove des
+    // sous-collections sont propagées.
+    this.listenTo(this.model, 'change add remove', this.push);
+  },
+
+  reset: function () {
+    this.states = [];
+    this.prevState = null;
+    this.push({silent:true});
+    this.trigger('reset');
+  },
+
+  push: function (options) {
+    if (this.prevState) {
+      this.states.push(this.prevState);
+    }
+    this.prevState = this.model.toJSON();
+    if (options && ! options.silent) this.trigger('push');
+  },
+
+  canUndo: function () {
+    return this.states.length > 0;
+  },
+
+  undo: function () {
+    if (this.canUndo()) {
+      this.stopListening();
+      this.pop();
+      this.model.trigger('sync');
+      this.startListening();
+      this.trigger('undo');
+    }
+  },
+
+  pop: function () {
+    this.prevState = this.states.pop();
+    this.model.set(this.model.parse(_.extend({},this.prevState)));
+  }
+});
+
+//
+// Cette vue est abonnée aux événements d'un UndoStack. Elle affiche le bouton
+// permettant d'appeler la fonction undo.
+//
+var UndoView = Backbone.View.extend({
+  el: $('#undoView'),
+
+  template: function () {
+    return "<button"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>";
+  },
+
+  initialize: function () {
+    this.model.on('reset undo push', this.render, this);
+  },
+
+  render: function () {
+    this.$el.html(this.template());
+    return this;
+  },
+
+  events: {
+    'click button': 'onUndoClick'
+  },
+
+  onUndoClick: function () {
+    this.model.undo();
+  }
+});
+
+//
 // Le Workspace est l'endroit où l'on initialise toutes les vues attachées à un
 // éléments statique du DOM. Pour faire simple, l'instance du `Developer` en
 // cours de visionnement y est conservé. Lorsque l'URL indique un nouvel `id`,
@@ -165,6 +250,10 @@ var Workspace = Backbone.Router.extend({
     this.currentDeveloper = new Developer();
     new NameView({ model: this.currentDeveloper });
     new LangCollectionView({ model: this.currentDeveloper });
+
+    var undoStack = new UndoStack({ model: this.currentDeveloper });
+    new UndoView({ model: undoStack });
+
     Backbone.history.start();
   },
 
