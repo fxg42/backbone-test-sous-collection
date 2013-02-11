@@ -69,7 +69,7 @@ var Developer = Backbone.Model.extend({
 // (événement `sync`).
 //
 var NameView = Backbone.View.extend({
-  el: $('#nameView'),
+  el: '#nameView',
 
   template: function (json) {
     return "<h1>"+ json.dev +"</h1>";
@@ -107,7 +107,7 @@ var LangView = Backbone.View.extend({
 // la collection.
 //
 var LangCollectionView = Backbone.View.extend({
-  el: $('#langCollectionView'),
+  el: '#langCollectionView',
   
   // Ici, le modèle est une instance de `Developer`.
   initialize: function () {
@@ -210,7 +210,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
 // permettant d'appeler la fonction undo.
 //
 var UndoView = Backbone.View.extend({
-  el: $('#undoView'),
+  el: '#undoView',
 
   template: function () {
     return "<button"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>";
