@@ -200,6 +200,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
   undo: function () {
     if (this.canUndo()) {
       this.doDeafly(this.back, this);
+      this.trigger('undo');
     }
   },
 
@@ -210,6 +211,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
   redo: function () {
     if (this.canRedo()) {
       this.doDeafly(this.forward, this);
+      this.trigger('redo');
     }
   },
 
@@ -225,14 +227,13 @@ _.extend(UndoStack.prototype, Backbone.Events, {
 
   restore: function (state) {
     this.model.set(this.model.parse(_.extend({}, state)));
+    this.model.trigger('sync');
   },
 
   doDeafly: function (fn, context) {
     this.stopListening();
     fn.call(context);
-    this.model.trigger('sync');
     this.startListening();
-    this.trigger('redo');
   }
 });
 
