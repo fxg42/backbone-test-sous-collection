@@ -62,7 +62,6 @@ var Developer = Backbone.Model.extend({
   }
 });
 
-
 //
 // Cette vue est attachée à un élément statique du DOM. C'est une vue en lecture
 // seule qui n'est mise à jour que lorsqu'un nouveau modèle est mis en place
@@ -155,53 +154,85 @@ var LangCollectionView = Backbone.View.extend({
 // Le UndoStack permet de sauvegarder temporairement l'état d'un Developer.
 // Lorsqu'un événement de modification est reçu (change, add ou remove), l'état
 // est sauvegardé en format json. Un appel à `undo` rammène l'état précédent.
+// Inversement, un appel à `redo` annule un `undo`.
 //
 var UndoStack = function (options) {
   this.model = options.model;
-  this.reset();
-  this.startListening();
+  this.initialize();
 };
 _.extend(UndoStack.prototype, Backbone.Events, {
+
+  initialize: function () {
+    this.reset();
+    this.startListening();
+  },
 
   startListening: function () {
     this.listenTo(this.model, 'sync', this.reset);
     // Meme si `model` est un Developer, les événements change add et remove des
     // sous-collections sont propagées.
-    this.listenTo(this.model, 'change add remove', this.push);
+    this.listenTo(this.model, 'change add remove', this.save);
   },
 
+// event handlers
+
   reset: function () {
-    this.states = [];
-    this.prevState = null;
-    this.push({silent:true});
+    this.states = [ this.model.toJSON() ];
+    this.cursor = 0;
     this.trigger('reset');
   },
 
-  push: function (options) {
-    if (this.prevState) {
-      this.states.push(this.prevState);
+  save: function () {
+    if (this.cursor < this.states.length - 1) {
+      this.states = this.states.slice(0, this.cursor + 1);
     }
-    this.prevState = this.model.toJSON();
-    if (options && ! options.silent) this.trigger('push');
+    this.states.push(this.model.toJSON());
+    this.cursor = this.states.length - 1;
+    this.trigger('save');
   },
 
+// public methods
+
   canUndo: function () {
-    return this.states.length > 0;
+    return this.cursor > 0;
   },
 
   undo: function () {
     if (this.canUndo()) {
-      this.stopListening();
-      this.pop();
-      this.model.trigger('sync');
-      this.startListening();
-      this.trigger('undo');
+      this.doDeafly(this.back, this);
     }
   },
 
-  pop: function () {
-    this.prevState = this.states.pop();
-    this.model.set(this.model.parse(_.extend({},this.prevState)));
+  canRedo: function () {
+    return this.cursor < this.states.length - 1;
+  },
+
+  redo: function () {
+    if (this.canRedo()) {
+      this.doDeafly(this.forward, this);
+    }
+  },
+
+// private methods
+
+  back: function () {
+    this.restore(this.states[--this.cursor]);
+  },
+
+  forward: function () {
+    this.restore(this.states[++this.cursor]);
+  },
+
+  restore: function (state) {
+    this.model.set(this.model.parse(_.extend({}, state)));
+  },
+
+  doDeafly: function (fn, context) {
+    this.stopListening();
+    fn.call(context);
+    this.model.trigger('sync');
+    this.startListening();
+    this.trigger('redo');
   }
 });
 
@@ -213,11 +244,13 @@ var UndoView = Backbone.View.extend({
   el: '#undoView',
 
   template: function () {
-    return "<button"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>";
+    return ""+
+      "<button class='undoBtn'"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>"+
+      "<button class='redoBtn'"+ (this.model.canRedo() ? '' : ' disabled') +">redo</button>";
   },
 
   initialize: function () {
-    this.model.on('reset undo push', this.render, this);
+    this.model.on('reset undo redo save', this.render, this);
   },
 
   render: function () {
@@ -226,11 +259,16 @@ var UndoView = Backbone.View.extend({
   },
 
   events: {
-    'click button': 'onUndoClick'
+    'click .undoBtn': 'onUndoClick',
+    'click .redoBtn': 'onRedoClick'
   },
 
   onUndoClick: function () {
     this.model.undo();
+  },
+
+  onRedoClick: function () {
+    this.model.redo();
   }
 });
 
