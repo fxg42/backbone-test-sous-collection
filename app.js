@@ -183,9 +183,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
   },
 
   save: function () {
-    if (this.cursor < this.states.length - 1) {
-      this.states = this.states.slice(0, this.cursor + 1);
-    }
+    this.states = this.states.slice(0, this.cursor + 1);
     this.states.push(this.model.toJSON());
     this.cursor = this.states.length - 1;
     this.trigger('save');
