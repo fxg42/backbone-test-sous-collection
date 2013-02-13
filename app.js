@@ -153,8 +153,8 @@ var LangCollectionView = Backbone.View.extend({
 //
 // Le UndoStack permet de sauvegarder temporairement l'état d'un Developer.
 // Lorsqu'un événement de modification est reçu (change, add ou remove), l'état
-// est sauvegardé en format json. Un appel à `undo` rammène l'état précédent.
-// Inversement, un appel à `redo` annule un `undo`.
+// est sauvegardé en format json (voir `Developer#toJSON()`). Un appel à `undo`
+// rammène l'état précédent. Inversement, un appel à `redo` annule un `undo`.
 //
 var UndoStack = function (options) {
   this.model = options.model;
@@ -170,7 +170,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
   startListening: function () {
     this.listenTo(this.model, 'sync', this.reset);
     // Meme si `model` est un Developer, les événements change add et remove des
-    // sous-collections sont propagées.
+    // sous-collections sont propagées. (voir `Developer#parse()`)
     this.listenTo(this.model, 'change add remove', this.save);
   },
 
@@ -226,8 +226,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
   },
 
   restore: function (state) {
-    this.model.set(this.model.parse(_.extend({}, state)));
-    this.model.trigger('sync');
+    this.model.set(this.model.parse(_.extend({}, state))).trigger('sync');
   },
 
   doDeafly: function (fn, context) {
