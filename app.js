@@ -145,7 +145,7 @@ var LangCollectionView = Backbone.View.extend({
   
   // ... et en ajoutant une nouvelle instance de la class `Language` dans la
   // liste de langages préférés.
-  onAddClick: function (e) {
+  onAddClick: function () {
     this.model.get('favoriteLanguages').add({name:this.$('input').val()});
   }
 });
@@ -197,7 +197,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
 
   undo: function () {
     if (this.canUndo()) {
-      this.doDeafly(this.back, this);
+      this.doDeafly(this.back);
       this.trigger('undo');
     }
   },
@@ -208,7 +208,7 @@ _.extend(UndoStack.prototype, Backbone.Events, {
 
   redo: function () {
     if (this.canRedo()) {
-      this.doDeafly(this.forward, this);
+      this.doDeafly(this.forward);
       this.trigger('redo');
     }
   },
@@ -227,9 +227,9 @@ _.extend(UndoStack.prototype, Backbone.Events, {
     this.model.set(this.model.parse(_.extend({}, state))).trigger('sync');
   },
 
-  doDeafly: function (fn, context) {
+  doDeafly: function (fn) {
     this.stopListening();
-    fn.call(context);
+    fn.call(this);
     this.startListening();
   }
 });
@@ -243,8 +243,10 @@ var UndoView = Backbone.View.extend({
 
   template: function () {
     return ""+
-      "<button class='undoBtn'"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>"+
-      "<button class='redoBtn'"+ (this.model.canRedo() ? '' : ' disabled') +">redo</button>";
+      "<div class='btn-group'>"+
+        "<button class='btn undoBtn'"+ (this.model.canUndo() ? '' : ' disabled') +">undo</button>"+
+        "<button class='btn redoBtn'"+ (this.model.canRedo() ? '' : ' disabled') +">redo</button>"+
+      "</div>";
   },
 
   initialize: function () {
@@ -271,6 +273,61 @@ var UndoView = Backbone.View.extend({
 });
 
 //
+// RecentStack écoute les synchronisations du modèle et gère une liste des
+// Developers les plus récemment consultés. On assure que la liste ne contient
+// pas de doublons et que la taille maximale de la liste soit respectée.
+//
+var RecentStack = function (options) {
+  this.model = options.model;
+  this.size = options.size || 5;
+  this.initialize();
+};
+_.extend(RecentStack.prototype, Backbone.Events, {
+
+  initialize: function () {
+    this.recent = [];
+    this.model.on('sync', this.add, this);
+  },
+
+  add: function () {
+    this.recent = _.filter(this.recent, function (it) { return it.id !== this.model.id; }, this);
+    this.recent.push({ id: this.model.id, dev: this.model.get('dev') });
+    this.recent = this.recent.slice(-this.size);
+    this.trigger('add');
+  },
+
+  getRecent: function () {
+    var retval = this.recent.slice(0);
+    retval.reverse();
+    return retval;
+  }
+});
+
+//
+// RecentView écoute les modifications d'un RecentStack et affiche la liste des
+// Developers les plus récemment consultés.
+//
+var RecentView = Backbone.View.extend({
+  el: '#recentView',
+
+  template: function () {
+    var items = _.reduce(this.model.getRecent(), function (acc, it) {
+      return acc + "<li><a href='#/developers/"+it.id+"'>"+it.dev+"</li>";
+    }, "");
+    return "<ul class='nav nav-list'><li class='nav-header'>Most recent</li>"+items+"</ul>";
+  },
+
+  initialize: function () {
+    this.model.on('add', this.render, this);
+  },
+
+  render: function () {
+    this.$el.html(this.template());
+    return this;
+  }
+});
+
+//
 // Le Workspace est l'endroit où l'on initialise toutes les vues attachées à un
 // éléments statique du DOM. Pour faire simple, l'instance du `Developer` en
 // cours de visionnement y est conservé. Lorsque l'URL indique un nouvel `id`,
@@ -289,6 +346,9 @@ var Workspace = Backbone.Router.extend({
 
     var undoStack = new UndoStack({ model: this.currentDeveloper });
     new UndoView({ model: undoStack });
+
+    var recentStack = new RecentStack({ model: this.currentDeveloper });
+    new RecentView({ model: recentStack });
 
     Backbone.history.start();
   },

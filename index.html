@@ -2,21 +2,40 @@
 <html>
   <head>
     <title>backboned</title>
-    <style>body{margin:30px;font:14px HelveticaNeue-Light,HelveticaNeue,Helvetica;}</style>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <style type="text/css" media="screen">
+      body{padding:40px;}
+      #recentView{margin-top:15px;}
+    </style>
   </head>
   <body>
-    <p>
-        <a href="#/developers/1">#/developers/1</a>
-      | <a href="#/developers/2">#/developers/2</a>
-      | <a href="#/developers/3">#/developers/3</a>
-    </p>
-
-    <div id="nameView"></div>
-    <div id="langCollectionView">
-      <ul></ul>
-      <input/><button>add language</button>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <ul class="nav">
+          <li><a href="#/developers/1">Alice</a></li>
+          <li><a href="#/developers/2">Bob</a></li>
+          <li><a href="#/developers/3">Carol</a></li>
+        </ul>
+      </div>
     </div>
-    <div id="undoView"></div>
+    <div class="container-fluid">
+      <div class="row-fluid">
+        <div class="span2">
+          <div id="recentView" class="well well-small"></div>
+        </div>
+        <div class="span10">
+          <div id="nameView"></div>
+          <div id="langCollectionView">
+            <ul></ul>
+            <div class="input-append">
+              <input type="text">
+              <button class="btn" type="button">Add language</button>
+            </div>
+          </div>
+          <div id="undoView"></div>
+        </div>
+      </div>
+    </div>
 
     <script src="jquery-1.9.1.min.js"></script>
     <script src="underscore-min.js"></script>
