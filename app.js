@@ -31,7 +31,8 @@ var Language = Backbone.Model.extend({
 });
 
 var FavoriteLanguages = Backbone.Collection.extend({
-  model: Language
+  model: Language,
+  comparator: 'name'
 });
 
 //
